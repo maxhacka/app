@@ -1,0 +1,10 @@
+venv
+__pycache__
+*.ignore
+.env
+build
+*.egg-info
+dist/
+pypi.sh
+ignore.*
+.markdownlint.json

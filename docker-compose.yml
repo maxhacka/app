@@ -1,0 +1,238 @@
+services:
+  # ============= БАЗЫ ДАННЫХ =============
+  postgres_auth:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+
+  postgres_staff:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: staff_db
+      POSTGRES_USER: staff_user
+      POSTGRES_PASSWORD: staff_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_staff_data:/var/lib/postgresql/data
+
+  postgres_timetable:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: timetable_db
+      POSTGRES_USER: timetable_user
+      POSTGRES_PASSWORD: timetable_pass
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_timetable_data:/var/lib/postgresql/data
+
+  postgres_applicants:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: applicants_db
+      POSTGRES_USER: applicants_user
+      POSTGRES_PASSWORD: applicants_pass
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_applicants_data:/var/lib/postgresql/data
+
+  postgres_events:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: events_db
+      POSTGRES_USER: events_user
+      POSTGRES_PASSWORD: events_pass
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_events_data:/var/lib/postgresql/data
+
+  postgres_library:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: library_db
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: library_pass
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_library_data:/var/lib/postgresql/data
+
+  postgres_certificates:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: certificates_db
+      POSTGRES_USER: certificates_user
+      POSTGRES_PASSWORD: certificates_pass
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_certificates_data:/var/lib/postgresql/data
+
+  # ============= МИКРОСЕРВИСЫ =============
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://auth_user:auth_pass@postgres_auth:5432/auth_db
+    depends_on:
+      postgres_auth:
+        condition: service_started
+    restart: unless-stopped
+
+  staff:
+    build:
+      context: ./staff
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://staff_user:staff_pass@postgres_staff:5432/staff_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_staff:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  timetable:
+    build:
+      context: ./timetable
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://timetable_user:timetable_pass@postgres_timetable:5432/timetable_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_timetable:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  applicants:
+    build:
+      context: ./applicants
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://applicants_user:applicants_pass@postgres_applicants:5432/applicants_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_applicants:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  events:
+    build:
+      context: ./events
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      DATABASE_URL: postgresql://events_user:events_pass@postgres_events:5432/events_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_events:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  library:
+    build:
+      context: ./library
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      DATABASE_URL: postgresql://library_user:library_pass@postgres_library:5432/library_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_library:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  certificates:
+    build:
+      context: ./certificates
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      DATABASE_URL: postgresql://certificates_user:certificates_pass@postgres_certificates:5432/certificates_db
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres_certificates:
+        condition: service_started
+      auth:
+        condition: service_started
+    restart: unless-stopped
+
+  # ============= FRONTEND =============
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - auth
+      - staff
+      - timetable
+      - applicants
+      - events
+      - library
+      - certificates
+    restart: unless-stopped
+
+  # ============= BOT =============
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    environment:
+      # Переменные окружения задаются при старте контейнера через переменные окружения хоста или .env файл
+      # Пример (Linux/Mac): export BOT_TOKEN=your_token && export BASE_URL=http://auth && docker-compose up
+      # Пример (Windows PowerShell): $env:BOT_TOKEN="your_token"; $env:BASE_URL="http://auth"; docker-compose up
+      # Или создайте .env файл в корне проекта с этими переменными
+      BOT_TOKEN: ${BOT_TOKEN}
+      BASE_URL: ${BASE_URL:-http://auth}
+      AUTH_USERNAME: ${AUTH_USERNAME}
+      AUTH_PASSWORD: ${AUTH_PASSWORD}
+    depends_on:
+      - auth
+      - staff
+      - timetable
+      - applicants
+      - events
+      - library
+      - certificates
+    restart: unless-stopped
+
+volumes:
+  postgres_auth_data:
+  postgres_staff_data:
+  postgres_timetable_data:
+  postgres_applicants_data:
+  postgres_events_data:
+  postgres_library_data:
+  postgres_certificates_data:
